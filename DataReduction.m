@@ -28,7 +28,7 @@ clear directory;
 %   - Image File Table
 %   - Invert File Table
 
-NameArray = cell(4,8);
+NameArray = cell(4,9);
 
 for j = 1:size(tare_csvs,1)
     if contains(tare_csvs(j).name,'Image')
@@ -108,8 +108,31 @@ for i = 1:size(NameArray,1)
     NameArray{i,8} = readtable([tare_dir,'\',NameArray{i,5}],...
         VariableNamingRule="Preserve");
 
-    % Put Data Formatting Here!
+    % This finds the closest matching (negative) pitch values for the tare
+    % files and removes all other values. 
+    NameArray{i,7}(~ismember(round(NameArray{i,7}.Pitch),-round(NameArray{i,6}.Pitch)),:) = [];
+    NameArray{i,8}(~ismember(round(NameArray{i,8}.Pitch),-round(NameArray{i,6}.Pitch)),:) = [];
+
+    % F_Aero = F_Data - (F_Image - F_Invert)
+    % Build Table For Found Forces
+    AeroValues        = table;
+    AeroValues.Pitch  = NameArray{i,6}.Pitch;
+    AeroValues.Q      = NameArray{i,6}.("Dynamic Pressure");
+    AeroValues.DragF  = NameArray{i,6}.("WAFBC Drag")  - (NameArray{i,7}.("WAFBC Drag")  - NameArray{i,8}.("WAFBC Drag"));
+    AeroValues.SideF  = NameArray{i,6}.("WAFBC Side")  - (NameArray{i,7}.("WAFBC Side")  - NameArray{i,8}.("WAFBC Side"));
+    AeroValues.LiftF  = NameArray{i,6}.("WAFBC Lift")  - (NameArray{i,7}.("WAFBC Lift")  - NameArray{i,8}.("WAFBC Lift"));
+    AeroValues.RollM  = NameArray{i,6}.("WAFBC Roll")  - (NameArray{i,7}.("WAFBC Roll")  - NameArray{i,8}.("WAFBC Roll"));
+    AeroValues.PitchM = NameArray{i,6}.("WAFBC Pitch") - (NameArray{i,7}.("WAFBC Pitch") - NameArray{i,8}.("WAFBC Pitch"));
+    AeroValues.YawM   = NameArray{i,6}.("WAFBC Yaw")   - (NameArray{i,7}.("WAFBC Yaw")   - NameArray{i,8}.("WAFBC Yaw"));
+    AeroValues.CDA    = AeroValues.DragF./AeroValues.Q;  % C_D * A
+    AeroValues.CNA    = AeroValues.SideF./AeroValues.Q;  % C_N * A (Sideslip)
+    AeroValues.CLA    = AeroValues.LiftF./AeroValues.Q;  % C_L * A
+    AeroValues.CMRA   = AeroValues.RollM./AeroValues.Q;  % C_M_Roll * A
+    AeroValues.CMPA   = AeroValues.PitchM./AeroValues.Q; % C_M_Pitch * A
+    AeroValues.CMYA   = AeroValues.YawM./AeroValues.Q;   % C_M_Yaw * A
+
+    NameArray{i,9}    = AeroValues;
 end
-clear i data_dir tare_dir
+clear i data_dir tare_dir AeroValues
 
 %% Plotting
