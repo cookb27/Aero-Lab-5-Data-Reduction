@@ -24,8 +24,11 @@ clear directory;
 %   - Data Filename
 %   - Image Filename
 %   - Invert Filename
+%   - Data File Table
+%   - Image File Table
+%   - Invert File Table
 
-NameArray = cell(4,5);
+NameArray = cell(4,8);
 
 for j = 1:size(tare_csvs,1)
     if contains(tare_csvs(j).name,'Image')
@@ -97,3 +100,16 @@ clear i dataArrayIndexer nameVar flowspeed YawAngle;
 clear ImageBool InvertBool data_csvs Numbers tare_csvs_nums tare_csvs
 
 %% Open Data Tables
+for i = 1:size(NameArray,1)
+    NameArray{i,6} = readtable([data_dir,'\',NameArray{i,3}],...
+        VariableNamingRule="Preserve");
+    NameArray{i,7} = readtable([tare_dir,'\',NameArray{i,4}],...
+        VariableNamingRule="Preserve");
+    NameArray{i,8} = readtable([tare_dir,'\',NameArray{i,5}],...
+        VariableNamingRule="Preserve");
+
+    % Put Data Formatting Here!
+end
+clear i data_dir tare_dir
+
+%% Plotting
