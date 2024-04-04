@@ -113,26 +113,220 @@ for i = 1:size(NameArray,1)
     NameArray{i,7}(~ismember(round(NameArray{i,7}.Pitch),-round(NameArray{i,6}.Pitch)),:) = [];
     NameArray{i,8}(~ismember(round(NameArray{i,8}.Pitch),-round(NameArray{i,6}.Pitch)),:) = [];
 
+    % Hard Coding Wing Area and Span Length
+    S_w   = 242.01; % in2
+    c_bar = 9.88; % in
+
     % F_Aero = F_Data - (F_Image - F_Invert)
     % Build Table For Found Forces
     AeroValues        = table;
     AeroValues.Pitch  = NameArray{i,6}.Pitch;
     AeroValues.Q      = NameArray{i,6}.("Dynamic Pressure");
-    AeroValues.DragF  = NameArray{i,6}.("WAFBC Drag")  - (NameArray{i,7}.("WAFBC Drag")  - NameArray{i,8}.("WAFBC Drag"));
-    AeroValues.SideF  = NameArray{i,6}.("WAFBC Side")  - (NameArray{i,7}.("WAFBC Side")  - NameArray{i,8}.("WAFBC Side"));
-    AeroValues.LiftF  = NameArray{i,6}.("WAFBC Lift")  - (NameArray{i,7}.("WAFBC Lift")  - NameArray{i,8}.("WAFBC Lift"));
-    AeroValues.RollM  = NameArray{i,6}.("WAFBC Roll")  - (NameArray{i,7}.("WAFBC Roll")  - NameArray{i,8}.("WAFBC Roll"));
-    AeroValues.PitchM = NameArray{i,6}.("WAFBC Pitch") - (NameArray{i,7}.("WAFBC Pitch") - NameArray{i,8}.("WAFBC Pitch"));
-    AeroValues.YawM   = NameArray{i,6}.("WAFBC Yaw")   - (NameArray{i,7}.("WAFBC Yaw")   - NameArray{i,8}.("WAFBC Yaw"));
+    AeroValues.DragF  = NameArray{i,6}.("WAFMC Drag")  - (NameArray{i,7}.("WAFMC Drag")  - NameArray{i,8}.("WAFMC Drag"));
+    AeroValues.SideF  = NameArray{i,6}.("WAFMC Side")  - (NameArray{i,7}.("WAFMC Side")  - NameArray{i,8}.("WAFMC Side"));
+    AeroValues.LiftF  = NameArray{i,6}.("WAFMC Lift")  - (NameArray{i,7}.("WAFMC Lift")  - NameArray{i,8}.("WAFMC Lift"));
+    AeroValues.RollM  = NameArray{i,6}.("WAFMC Roll")  - (NameArray{i,7}.("WAFMC Roll")  - NameArray{i,8}.("WAFMC Roll"));
+    AeroValues.PitchM = NameArray{i,6}.("WAFMC Pitch") - (NameArray{i,7}.("WAFMC Pitch") - NameArray{i,8}.("WAFMC Pitch"));
+    AeroValues.YawM   = NameArray{i,6}.("WAFMC Yaw")   - (NameArray{i,7}.("WAFMC Yaw")   - NameArray{i,8}.("WAFMC Yaw"));
     AeroValues.CDA    = AeroValues.DragF./AeroValues.Q;  % C_D * A
     AeroValues.CNA    = AeroValues.SideF./AeroValues.Q;  % C_N * A (Sideslip)
     AeroValues.CLA    = AeroValues.LiftF./AeroValues.Q;  % C_L * A
     AeroValues.CMRA   = AeroValues.RollM./AeroValues.Q;  % C_M_Roll * A
     AeroValues.CMPA   = AeroValues.PitchM./AeroValues.Q; % C_M_Pitch * A
     AeroValues.CMYA   = AeroValues.YawM./AeroValues.Q;   % C_M_Yaw * A
+    AeroValues.CD     = AeroValues.CDA./S_w; % C_D
+    AeroValues.CN     = AeroValues.CNA./S_w; % C_D
+    AeroValues.CL     = AeroValues.CLA./S_w; % C_D
+    AeroValues.CMR    = AeroValues.CMRA./S_w; % C_D
+    AeroValues.CMP    = AeroValues.CMPA./S_w; % C_D
+    AeroValues.CMY    = AeroValues.CMYA./S_w; % C_D
+
+    % NOTE: Need to add uncertainties to all values (1% of readings per)
 
     NameArray{i,9}    = AeroValues;
+
+    % If you need to see the header names, use this in the command window:
+    % NameArray{1,9}.Properties.VariableNames
 end
 clear i data_dir tare_dir AeroValues
+clear S_w c_bar
 
 %% Plotting
+% Plot 1 - Forces, Moments Vs Alpha  75 fps (Both 0, 10 deg Yaw)
+% Plot 2 - Forces, Moments Vs Alpha 100 fps (Both 0, 10 deg Yaw)
+% Plot 3 - Cl,Cd vs Alpha, All Run Cases
+% Plot 4 - Drag Polar, All Run Cases
+% Plot 5 - Cl/Cd vs Alpha, All Run Cases
+% Plot 6 - CM_Pitch vs Alpha, All Run Cases
+% Plot 7 - CN, CM_Roll, CM_Yaw vs Alpha, All Run Cases
+
+% Plots 1 and 2 will be unique code
+% Plots 3-7 will be using a for loop
+% Note: Consider storing as graphics objects array
+F1 = figure; Ax1 = axes(Parent=F1);
+F2 = figure; Ax2 = axes(Parent=F2);
+F3 = figure; Ax3 = axes(Parent=F3);
+F4 = figure; Ax4 = axes(Parent=F4);
+F5 = figure; Ax5 = axes(Parent=F5);
+F6 = figure; Ax6 = axes(Parent=F6);
+F7 = figure; Ax7 = axes(Parent=F7);
+
+%% Plot 1
+axes(Ax1);
+hold on;
+grid on;
+title("Forces and Moments for 75 fps Runs");
+xlabel("Alpha (deg)");
+ylabel("Force (lbs)")
+for i = 1:2
+    runName   = sprintf("%.0f Beta",NameArray{i,2});
+    
+    % Create aeroTable as temporary variable to access Table Values
+    aeroTable = NameArray{i,9};
+
+    yyaxis left
+    plot(aeroTable.Pitch,aeroTable.DragF,DisplayName=sprintf("%s Drag",runName));
+    plot(aeroTable.Pitch,aeroTable.SideF,DisplayName=sprintf("%s Side Force",runName));
+    plot(aeroTable.Pitch,aeroTable.LiftF,DisplayName=sprintf("%s Lift",runName));
+
+    yyaxis right
+    plot(aeroTable.Pitch,aeroTable.PitchM,DisplayName=sprintf("%s Pitch Moment",runName));
+    plot(aeroTable.Pitch,aeroTable.YawM,DisplayName=sprintf("%s Yaw Moment",runName));
+    plot(aeroTable.Pitch,aeroTable.RollM,DisplayName=sprintf("%s Roll Moment",runName));
+end
+legend(NumColumns=2,Location='northwest');
+ylabel("Moment (ft*lbs)");
+
+%% Plot 2
+axes(Ax2);
+hold on;
+grid on;
+title("Forces and Moments for 100 fps Runs");
+xlabel("Alpha (deg)");
+ylabel("Force (lbs)");
+
+for i = 3:4
+    runName   = sprintf("%.0f Beta",NameArray{i,2});
+    
+    % Create aeroTable as temporary variable to access Table Values
+    aeroTable = NameArray{i,9};
+
+    yyaxis left
+    plot(aeroTable.Pitch,aeroTable.DragF,DisplayName=sprintf("%s Drag",runName));
+    plot(aeroTable.Pitch,aeroTable.SideF,DisplayName=sprintf("%s Side Force",runName));
+    plot(aeroTable.Pitch,aeroTable.LiftF,DisplayName=sprintf("%s Lift",runName));
+
+    yyaxis right
+    plot(aeroTable.Pitch,aeroTable.PitchM,DisplayName=sprintf("%s Pitch Moment",runName));
+    plot(aeroTable.Pitch,aeroTable.YawM,DisplayName=sprintf("%s Yaw Moment",runName));
+    plot(aeroTable.Pitch,aeroTable.RollM,DisplayName=sprintf("%s Roll Moment",runName));
+end
+
+legend(NumColumns=2,Location='northwest');
+ylabel("Moment (ft*lbs)");
+
+%% Plot 3
+axes(Ax3);
+hold on;
+grid on;
+xlabel("Alpha (deg)");
+ylabel("CL");
+title("Lift and Drag Coefficients Over Angles of Attack");
+
+for i = 1:4
+    runName   = sprintf("%s fps, %.0f Beta",NameArray{i,1},NameArray{i,2});
+    
+    % Create aeroTable as temporary variable to access Table Values
+    aeroTable = NameArray{i,9};
+
+    yyaxis left
+    plot(aeroTable.Pitch,aeroTable.CL,DisplayName=sprintf("%s CL",runName));
+
+    yyaxis right
+    plot(aeroTable.Pitch,aeroTable.CD,DisplayName=sprintf("%s CD",runName));
+end
+
+legend(Location='northwest');
+ylabel("CD");
+
+%% Plot 4
+axes(Ax4);
+hold on;
+grid on;
+xlabel("CD");
+ylabel("CL");
+title("Drag Polars");
+
+for i = 1:4
+    runName   = sprintf("%s fps, %.0f Beta",NameArray{i,1},NameArray{i,2});
+    
+    % Create aeroTable as temporary variable to access Table Values
+    aeroTable = NameArray{i,9};
+
+    plot(aeroTable.CD,aeroTable.CL,DisplayName=sprintf("%s",runName));
+end
+
+legend(Location='northwest');
+
+%% Plot 5
+axes(Ax5);
+hold on;
+grid on;
+xlabel("Alpha (deg)");
+ylabel("CL/CD");
+title("Lift to Drag Ratios Over Angles of Attack");
+
+for i = 1:4
+    runName   = sprintf("%s fps, %.0f Beta",NameArray{i,1},NameArray{i,2});
+    
+    % Create aeroTable as temporary variable to access Table Values
+    aeroTable = NameArray{i,9};
+
+    plot(aeroTable.Pitch,aeroTable.CL./aeroTable.CD,DisplayName=sprintf("%s",runName));
+end
+
+legend(Location='northwest');
+
+%% Plot 6
+axes(Ax6);
+hold on;
+grid on;
+xlabel("Alpha (deg)");
+ylabel("C_M Pitch");
+title("Pitching Coefficient Over Angles of Attack");
+
+for i = 1:4
+    runName   = sprintf("%s fps, %.0f Beta",NameArray{i,1},NameArray{i,2});
+    
+    % Create aeroTable as temporary variable to access Table Values
+    aeroTable = NameArray{i,9};
+
+    plot(aeroTable.Pitch,aeroTable.CMP,DisplayName=sprintf("%s",runName));
+end
+
+legend(Location='northwest');
+
+%% Plot 7
+axes(Ax7);
+hold on;
+grid on;
+xlabel("Alpha (deg)");
+ylabel("Force (lbs)");
+title("Side Force, C_M Yaw, C_M Roll Over Angles of Attack");
+
+for i = 1:4
+    runName   = sprintf("%s fps, %.0f Beta",NameArray{i,1},NameArray{i,2});
+    
+    % Create aeroTable as temporary variable to access Table Values
+    aeroTable = NameArray{i,9};
+
+    yyaxis left
+    plot(aeroTable.Pitch,aeroTable.SideF,DisplayName=sprintf("%s Side Force",runName));
+
+    yyaxis right
+    plot(aeroTable.Pitch,aeroTable.CMY,DisplayName=sprintf("%s C_M Yaw",runName));
+    plot(aeroTable.Pitch,aeroTable.CMR,DisplayName=sprintf("%s C_M Roll",runName));
+end
+
+legend(Location='northwest');
+ylabel("Coefficient");
