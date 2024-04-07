@@ -122,12 +122,23 @@ for i = 1:size(NameArray,1)
     AeroValues        = table;
     AeroValues.Pitch  = NameArray{i,6}.Pitch;
     AeroValues.Q      = NameArray{i,6}.("Dynamic Pressure");
+
     AeroValues.DragF  = NameArray{i,6}.("WAFMC Drag")  - (NameArray{i,7}.("WAFMC Drag")  - NameArray{i,8}.("WAFMC Drag"));
     AeroValues.SideF  = NameArray{i,6}.("WAFMC Side")  - (NameArray{i,7}.("WAFMC Side")  - NameArray{i,8}.("WAFMC Side"));
     AeroValues.LiftF  = NameArray{i,6}.("WAFMC Lift")  - (NameArray{i,7}.("WAFMC Lift")  - NameArray{i,8}.("WAFMC Lift"));
     AeroValues.RollM  = NameArray{i,6}.("WAFMC Roll")  - (NameArray{i,7}.("WAFMC Roll")  - NameArray{i,8}.("WAFMC Roll"));
     AeroValues.PitchM = NameArray{i,6}.("WAFMC Pitch") - (NameArray{i,7}.("WAFMC Pitch") - NameArray{i,8}.("WAFMC Pitch"));
     AeroValues.YawM   = NameArray{i,6}.("WAFMC Yaw")   - (NameArray{i,7}.("WAFMC Yaw")   - NameArray{i,8}.("WAFMC Yaw"));
+
+    % 1% Uncertainties in All Recorded Forces and Moments
+    AeroValues.DUnc   = 0.01.*sqrt(NameArray{i,6}.("WAFMC Drag").^2  + NameArray{i,7}.("WAFMC Drag").^2  + NameArray{i,8}.("WAFMC Drag").^2);
+    AeroValues.SUnc   = 0.01.*sqrt(NameArray{i,6}.("WAFMC Side").^2  + NameArray{i,7}.("WAFMC Side").^2  + NameArray{i,8}.("WAFMC Side").^2);
+    AeroValues.LUnc   = 0.01.*sqrt(NameArray{i,6}.("WAFMC Lift").^2  + NameArray{i,7}.("WAFMC Lift").^2  + NameArray{i,8}.("WAFMC Lift").^2);
+    AeroValues.RMUnc  = 0.01.*sqrt(NameArray{i,6}.("WAFMC Roll").^2  + NameArray{i,7}.("WAFMC Roll").^2  + NameArray{i,8}.("WAFMC Roll").^2);
+    AeroValues.PMUnc  = 0.01.*sqrt(NameArray{i,6}.("WAFMC Pitch").^2 + NameArray{i,7}.("WAFMC Pitch").^2 + NameArray{i,8}.("WAFMC Pitch").^2);
+    AeroValues.YMUnc  = 0.01.*sqrt(NameArray{i,6}.("WAFMC Yaw").^2   + NameArray{i,7}.("WAFMC Yaw").^2   + NameArray{i,8}.("WAFMC Yaw").^2);
+
+    % Coefficients
     AeroValues.CDA    = AeroValues.DragF./AeroValues.Q;  % C_D * A
     AeroValues.CNA    = AeroValues.SideF./AeroValues.Q;  % C_N * A (Sideslip)
     AeroValues.CLA    = AeroValues.LiftF./AeroValues.Q;  % C_L * A
@@ -160,6 +171,26 @@ clear S_w c_bar
 % Plot 6 - CM_Pitch vs Alpha, All Run Cases
 % Plot 7 - CN, CM_Roll, CM_Yaw vs Alpha, All Run Cases
 
+% Need to extablish simple color & symbol assignment per dataset
+% Run Symbols
+% -  0 Beta,  75fps - Circle   - MarkerVec(1,:)
+% - 10 Beta,  75fps - Plus     - MarkerVec(2,:)
+% -  0 Beta, 100fps - Triangle - MarkerVec(3,:)
+% - 10 Beta, 100fps - "X"      - MarkerVec(4,:)
+% Data Color
+% - Lift         - ColorVec(1,:)
+% - Drag         - ColorVec(2,:)
+% - Sideforce    - ColorVec(3,:)
+% - Pitch Moment - ColorVec(4,:)
+% - Yaw Moment   - ColorVec(5,:)
+% - Roll Moment  - ColorVec(6,:)
+% - C_L          - ColorVec(7,:)
+% - C_D          - ColorVec(8,:)
+% - C_N          - ColorVec(9,:)
+% - C_M_P        - ColorVec(10,:)
+% - C_M_Y        - ColorVec(11,:)
+% - C_M_R        - ColorVec(12,:)
+
 % Plots 1 and 2 will be unique code
 % Plots 3-7 will be using a for loop
 % Note: Consider storing as graphics objects array
@@ -170,6 +201,24 @@ F4 = figure; Ax4 = axes(Parent=F4);
 F5 = figure; Ax5 = axes(Parent=F5);
 F6 = figure; Ax6 = axes(Parent=F6);
 F7 = figure; Ax7 = axes(Parent=F7);
+
+% Creating Vector of Strings for plotting Symbols
+MarkerVec    = ["o";"+";"^";"x"];
+LineStyleVec = ["-";"--";":";"-."];
+
+% Creating vector of colors for plotting
+ColorVec = (  1.*[0.0000,0.4470,0.7410; ...
+                  0.8500,0.3250,0.0980; ...
+                  0.9290,0.6940,0.1250; ...
+                  0.4940,0.1840,0.5560; ...
+                  0.4660,0.6740,0.1880; ...
+                  0.6350,0.0780,0.9330; ...
+                  1.0000,0.0000,0.0000; ...
+                  0.5000,0.0000,0.5000; ...
+                  0.0000,0.0000,1.0000; ...
+                  0.6250,0.3203,0.1758; ...
+                  0.4648,0.5313,0.5977; ...
+                  0.0000,0.0000,1.0000]);
 
 %% Plot 1
 axes(Ax1);
@@ -183,19 +232,41 @@ for i = 1:2
     
     % Create aeroTable as temporary variable to access Table Values
     aeroTable = NameArray{i,9};
+    tempMarker = MarkerVec(i,:);
+    tempStyle  = LineStyleVec(i,:);
 
     yyaxis left
-    plot(aeroTable.Pitch,aeroTable.DragF,DisplayName=sprintf("%s Drag",runName));
-    plot(aeroTable.Pitch,aeroTable.SideF,DisplayName=sprintf("%s Side Force",runName));
-    plot(aeroTable.Pitch,aeroTable.LiftF,DisplayName=sprintf("%s Lift",runName));
+    % plot(aeroTable.Pitch,aeroTable.DragF,DisplayName=sprintf("%s Drag",runName));
+    % plot(aeroTable.Pitch,aeroTable.SideF,DisplayName=sprintf("%s Side Force",runName));
+    % plot(aeroTable.Pitch,aeroTable.LiftF,DisplayName=sprintf("%s Lift",runName));
+    errorbar(aeroTable.Pitch,aeroTable.DragF,aeroTable.DUnc,...
+        DisplayName=sprintf("%s Drag",runName),...
+        Color=ColorVec(2,:),Marker=tempMarker,LineStyle=tempStyle);
+    errorbar(aeroTable.Pitch,aeroTable.SideF,aeroTable.SUnc,...
+        DisplayName=sprintf("%s Side Force",runName),...
+        Color=ColorVec(3,:),Marker=tempMarker,LineStyle=tempStyle);
+    errorbar(aeroTable.Pitch,aeroTable.LiftF,aeroTable.LUnc,...
+        DisplayName=sprintf("%s Lift",runName),...
+        Color=ColorVec(1,:),Marker=tempMarker,LineStyle=tempStyle);
 
     yyaxis right
-    plot(aeroTable.Pitch,aeroTable.PitchM,DisplayName=sprintf("%s Pitch Moment",runName));
-    plot(aeroTable.Pitch,aeroTable.YawM,DisplayName=sprintf("%s Yaw Moment",runName));
-    plot(aeroTable.Pitch,aeroTable.RollM,DisplayName=sprintf("%s Roll Moment",runName));
+    % plot(aeroTable.Pitch,aeroTable.PitchM,DisplayName=sprintf("%s Pitch Moment",runName));
+    % plot(aeroTable.Pitch,aeroTable.YawM,DisplayName=sprintf("%s Yaw Moment",runName));
+    % plot(aeroTable.Pitch,aeroTable.RollM,DisplayName=sprintf("%s Roll Moment",runName));
+    errorbar(aeroTable.Pitch,aeroTable.PitchM,aeroTable.PMUnc,...
+        DisplayName=sprintf("%s Pitch Moment",runName),...
+        Color=ColorVec(4,:),Marker=tempMarker,LineStyle=tempStyle);
+    errorbar(aeroTable.Pitch,aeroTable.YawM,aeroTable.YMUnc,...
+        DisplayName=sprintf("%s Yaw Moment",runName),...
+        Color=ColorVec(5,:),Marker=tempMarker,LineStyle=tempStyle);
+    errorbar(aeroTable.Pitch,aeroTable.RollM,aeroTable.RMUnc,...
+        DisplayName=sprintf("%s Roll Moment",runName),...
+        Color=ColorVec(6,:),Marker=tempMarker,LineStyle=tempStyle);
 end
 legend(NumColumns=2,Location='northwest');
 ylabel("Moment (ft*lbs)");
+Ax1.YAxis(1).Color = 'black';
+Ax1.YAxis(2).Color = 'black';
 
 %% Plot 2
 axes(Ax2);
@@ -210,22 +281,45 @@ for i = 3:4
     
     % Create aeroTable as temporary variable to access Table Values
     aeroTable = NameArray{i,9};
+    tempMarker = MarkerVec(i,:);
+    tempStyle  = LineStyleVec(i,:);
 
     yyaxis left
-    plot(aeroTable.Pitch,aeroTable.DragF,DisplayName=sprintf("%s Drag",runName));
-    plot(aeroTable.Pitch,aeroTable.SideF,DisplayName=sprintf("%s Side Force",runName));
-    plot(aeroTable.Pitch,aeroTable.LiftF,DisplayName=sprintf("%s Lift",runName));
+    % plot(aeroTable.Pitch,aeroTable.DragF,DisplayName=sprintf("%s Drag",runName));
+    % plot(aeroTable.Pitch,aeroTable.SideF,DisplayName=sprintf("%s Side Force",runName));
+    % plot(aeroTable.Pitch,aeroTable.LiftF,DisplayName=sprintf("%s Lift",runName));
+    errorbar(aeroTable.Pitch,aeroTable.DragF,aeroTable.DUnc,...
+        DisplayName=sprintf("%s Drag",runName),...
+        Color=ColorVec(2,:),Marker=tempMarker,LineStyle=tempStyle);
+    errorbar(aeroTable.Pitch,aeroTable.SideF,aeroTable.SUnc,...
+        DisplayName=sprintf("%s Side Force",runName),...
+        Color=ColorVec(3,:),Marker=tempMarker,LineStyle=tempStyle);
+    errorbar(aeroTable.Pitch,aeroTable.LiftF,aeroTable.LUnc,...
+        DisplayName=sprintf("%s Lift",runName),...
+        Color=ColorVec(1,:),Marker=tempMarker,LineStyle=tempStyle);
 
     yyaxis right
-    plot(aeroTable.Pitch,aeroTable.PitchM,DisplayName=sprintf("%s Pitch Moment",runName));
-    plot(aeroTable.Pitch,aeroTable.YawM,DisplayName=sprintf("%s Yaw Moment",runName));
-    plot(aeroTable.Pitch,aeroTable.RollM,DisplayName=sprintf("%s Roll Moment",runName));
+    % plot(aeroTable.Pitch,aeroTable.PitchM,DisplayName=sprintf("%s Pitch Moment",runName));
+    % plot(aeroTable.Pitch,aeroTable.YawM,DisplayName=sprintf("%s Yaw Moment",runName));
+    % plot(aeroTable.Pitch,aeroTable.RollM,DisplayName=sprintf("%s Roll Moment",runName));
+    errorbar(aeroTable.Pitch,aeroTable.PitchM,aeroTable.PMUnc,...
+        DisplayName=sprintf("%s Pitch Moment",runName),...
+        Color=ColorVec(4,:),Marker=tempMarker,LineStyle=tempStyle);
+    errorbar(aeroTable.Pitch,aeroTable.YawM,aeroTable.YMUnc,...
+        DisplayName=sprintf("%s Yaw Moment",runName),...
+        Color=ColorVec(5,:),Marker=tempMarker,LineStyle=tempStyle);
+    errorbar(aeroTable.Pitch,aeroTable.RollM,aeroTable.RMUnc,...
+        DisplayName=sprintf("%s Roll Moment",runName),...
+        Color=ColorVec(6,:),Marker=tempMarker,LineStyle=tempStyle);
 end
-
 legend(NumColumns=2,Location='northwest');
 ylabel("Moment (ft*lbs)");
+Ax2.YAxis(1).Color = 'black';
+Ax2.YAxis(2).Color = 'black';
 
 %% Plot 3
+% NOTE: Could condense down into single 4 iteration for loop from here
+% through plot 7, would require formatting after main loop
 axes(Ax3);
 hold on;
 grid on;
@@ -238,16 +332,22 @@ for i = 1:4
     
     % Create aeroTable as temporary variable to access Table Values
     aeroTable = NameArray{i,9};
+    tempMarker = MarkerVec(i,:);
+    tempStyle  = LineStyleVec(i,:);
 
     yyaxis left
-    plot(aeroTable.Pitch,aeroTable.CL,DisplayName=sprintf("%s CL",runName));
+    plot(aeroTable.Pitch,aeroTable.CL,DisplayName=sprintf("%s CL",runName),...
+        Color=ColorVec(7,:),Marker=tempMarker,LineStyle=tempStyle);
 
     yyaxis right
-    plot(aeroTable.Pitch,aeroTable.CD,DisplayName=sprintf("%s CD",runName));
+    plot(aeroTable.Pitch,aeroTable.CD,DisplayName=sprintf("%s CD",runName),...
+        Color=ColorVec(8,:),Marker=tempMarker,LineStyle=tempStyle);
 end
-
 legend(Location='northwest');
 ylabel("CD");
+Ax3.YAxis(1).Color = 'black';
+Ax3.YAxis(2).Color = 'black';
+Ax3.YAxis(2).Limits = Ax3.YAxis(1).Limits;
 
 %% Plot 4
 axes(Ax4);
@@ -262,8 +362,11 @@ for i = 1:4
     
     % Create aeroTable as temporary variable to access Table Values
     aeroTable = NameArray{i,9};
+    tempMarker = MarkerVec(i,:);
+    tempStyle  = LineStyleVec(i,:);
 
-    plot(aeroTable.CD,aeroTable.CL,DisplayName=sprintf("%s",runName));
+    plot(aeroTable.CD,aeroTable.CL,DisplayName=sprintf("%s",runName),...
+        Color=ColorVec(7,:),Marker=tempMarker,LineStyle=tempStyle);
 end
 
 legend(Location='northwest');
@@ -281,8 +384,11 @@ for i = 1:4
     
     % Create aeroTable as temporary variable to access Table Values
     aeroTable = NameArray{i,9};
+    tempMarker = MarkerVec(i,:);
+    tempStyle  = LineStyleVec(i,:);
 
-    plot(aeroTable.Pitch,aeroTable.CL./aeroTable.CD,DisplayName=sprintf("%s",runName));
+    plot(aeroTable.Pitch,aeroTable.CL./aeroTable.CD,DisplayName=sprintf("%s",runName),...
+        Color='black',Marker=tempMarker,LineStyle=tempStyle);
 end
 
 legend(Location='northwest');
@@ -300,8 +406,11 @@ for i = 1:4
     
     % Create aeroTable as temporary variable to access Table Values
     aeroTable = NameArray{i,9};
+    tempMarker = MarkerVec(i,:);
+    tempStyle  = LineStyleVec(i,:);
 
-    plot(aeroTable.Pitch,aeroTable.CMP,DisplayName=sprintf("%s",runName));
+    plot(aeroTable.Pitch,aeroTable.CMP,DisplayName=sprintf("%s",runName),...
+        Color=ColorVec(10,:),Marker=tempMarker,LineStyle=tempStyle);
 end
 
 legend(Location='northwest');
@@ -319,14 +428,23 @@ for i = 1:4
     
     % Create aeroTable as temporary variable to access Table Values
     aeroTable = NameArray{i,9};
+    tempMarker = MarkerVec(i,:);
+    tempStyle  = LineStyleVec(i,:);
 
     yyaxis left
-    plot(aeroTable.Pitch,aeroTable.SideF,DisplayName=sprintf("%s Side Force",runName));
+    plot(aeroTable.Pitch,aeroTable.SideF,DisplayName=sprintf("%s Side Force",runName),...
+        Color=ColorVec(3,:),Marker=tempMarker,LineStyle=tempStyle);
 
     yyaxis right
-    plot(aeroTable.Pitch,aeroTable.CMY,DisplayName=sprintf("%s C_M Yaw",runName));
-    plot(aeroTable.Pitch,aeroTable.CMR,DisplayName=sprintf("%s C_M Roll",runName));
+    plot(aeroTable.Pitch,aeroTable.CMY,DisplayName=sprintf("%s C_M Yaw",runName),...
+        Color=ColorVec(11,:),Marker=tempMarker,LineStyle=tempStyle);
+    plot(aeroTable.Pitch,aeroTable.CMR,DisplayName=sprintf("%s C_M Roll",runName),...
+        Color=ColorVec(12,:),Marker=tempMarker,LineStyle=tempStyle);
 end
 
 legend(Location='northwest');
 ylabel("Coefficient");
+Ax7.YAxis(1).Color = 'black';
+Ax7.YAxis(2).Color = 'black';
+
+clear i runName aeroTable tempMarker MarkerVec ColorVec tempStyle LineStyleVec
