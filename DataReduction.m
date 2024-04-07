@@ -120,8 +120,14 @@ for i = 1:size(NameArray,1)
     % F_Aero = F_Data - (F_Image - F_Invert)
     % Build Table For Found Forces
     AeroValues        = table;
+
     AeroValues.Pitch  = NameArray{i,6}.Pitch;
     AeroValues.Q      = NameArray{i,6}.("Dynamic Pressure");
+
+    % AeroValues.PUnc   = 0.01.*AeroValues.Pitch; % Constant Percentage of
+    % Angle Uncertainty
+    AeroValues.PUnc   = 0.00.*ones(size(AeroValues.Pitch)); % Constant Small Angle Uncertainty
+    AeroValues.QUnc   = 0.01.*AeroValues.Q;
 
     AeroValues.DragF  = NameArray{i,6}.("WAFMC Drag")  - (NameArray{i,7}.("WAFMC Drag")  - NameArray{i,8}.("WAFMC Drag"));
     AeroValues.SideF  = NameArray{i,6}.("WAFMC Side")  - (NameArray{i,7}.("WAFMC Side")  - NameArray{i,8}.("WAFMC Side"));
@@ -138,21 +144,40 @@ for i = 1:size(NameArray,1)
     AeroValues.PMUnc  = 0.01.*sqrt(NameArray{i,6}.("WAFMC Pitch").^2 + NameArray{i,7}.("WAFMC Pitch").^2 + NameArray{i,8}.("WAFMC Pitch").^2);
     AeroValues.YMUnc  = 0.01.*sqrt(NameArray{i,6}.("WAFMC Yaw").^2   + NameArray{i,7}.("WAFMC Yaw").^2   + NameArray{i,8}.("WAFMC Yaw").^2);
 
-    % Coefficients
+    % Coefficients * Areas
     AeroValues.CDA    = AeroValues.DragF./AeroValues.Q;  % C_D * A
     AeroValues.CNA    = AeroValues.SideF./AeroValues.Q;  % C_N * A (Sideslip)
     AeroValues.CLA    = AeroValues.LiftF./AeroValues.Q;  % C_L * A
     AeroValues.CMRA   = AeroValues.RollM./AeroValues.Q;  % C_M_Roll * A
     AeroValues.CMPA   = AeroValues.PitchM./AeroValues.Q; % C_M_Pitch * A
     AeroValues.CMYA   = AeroValues.YawM./AeroValues.Q;   % C_M_Yaw * A
-    AeroValues.CD     = AeroValues.CDA./S_w; % C_D
-    AeroValues.CN     = AeroValues.CNA./S_w; % C_D
-    AeroValues.CL     = AeroValues.CLA./S_w; % C_D
-    AeroValues.CMR    = AeroValues.CMRA./S_w; % C_D
-    AeroValues.CMP    = AeroValues.CMPA./S_w; % C_D
-    AeroValues.CMY    = AeroValues.CMYA./S_w; % C_D
 
-    % NOTE: Need to add uncertainties to all values (1% of readings per)
+    % Uncertainty in Coefficients * Areas
+    AeroValues.CDAUnc  = sqrt((AeroValues.DUnc./AeroValues.Q).^2  + (AeroValues.DragF.*AeroValues.QUnc./(AeroValues.Q.^2)).^2);
+    AeroValues.CNAUnc  = sqrt((AeroValues.SUnc./AeroValues.Q).^2  + (AeroValues.SideF.*AeroValues.QUnc./(AeroValues.Q.^2)).^2);
+    AeroValues.CLAUnc  = sqrt((AeroValues.LUnc./AeroValues.Q).^2  + (AeroValues.LiftF.*AeroValues.QUnc./(AeroValues.Q.^2)).^2);
+    AeroValues.CMRAUnc = sqrt((AeroValues.RMUnc./AeroValues.Q).^2 + (AeroValues.RollM.*AeroValues.QUnc./(AeroValues.Q.^2)).^2);
+    AeroValues.CMPAUnc = sqrt((AeroValues.PMUnc./AeroValues.Q).^2 + (AeroValues.PitchM.*AeroValues.QUnc./(AeroValues.Q.^2)).^2);
+    AeroValues.CMYAUnc = sqrt((AeroValues.YMUnc./AeroValues.Q).^2 + (AeroValues.YawM.*AeroValues.QUnc./(AeroValues.Q.^2)).^2);
+
+    % Coefficients Alone
+    AeroValues.CD     = AeroValues.CDA./S_w; % C_Drag
+    AeroValues.CN     = AeroValues.CNA./S_w; % C_Normal (SideForce)
+    AeroValues.CL     = AeroValues.CLA./S_w; % C_Lift
+    AeroValues.CMR    = AeroValues.CMRA./S_w; % C_M_Roll
+    AeroValues.CMP    = AeroValues.CMPA./S_w; % C_M_Pitch
+    AeroValues.CMY    = AeroValues.CMYA./S_w; % C_M_Yaw
+
+    % Uncertainty in Coefficients
+    AeroValues.CDUnc  = AeroValues.CDAUnc./S_w;
+    AeroValues.CNUnc  = AeroValues.CNAUnc./S_w;
+    AeroValues.CLUnc  = AeroValues.CLAUnc./S_w;
+    AeroValues.CMRUnc = AeroValues.CMRAUnc./S_w;
+    AeroValues.CMPUnc = AeroValues.CMPAUnc./S_w;
+    AeroValues.CMYUnc = AeroValues.CMYAUnc./S_w;
+
+    % CL/CD Unc
+    AeroValues.CLCDUnc = sqrt((AeroValues.CLUnc./AeroValues.CD).^2 + (AeroValues.CL.*AeroValues.CDUnc./(AeroValues.CD.^2)).^2);
 
     NameArray{i,9}    = AeroValues;
 
@@ -194,13 +219,25 @@ clear S_w c_bar
 % Plots 1 and 2 will be unique code
 % Plots 3-7 will be using a for loop
 % Note: Consider storing as graphics objects array
-F1 = figure; Ax1 = axes(Parent=F1);
-F2 = figure; Ax2 = axes(Parent=F2);
+F1 = figure;  T1 = tiledlayout(1,2,Parent=F1); Ax1_1 = nexttile; Ax1_2 = nexttile;
+F2 = figure;  T2 = tiledlayout(1,2,Parent=F2); Ax2_1 = nexttile; Ax2_2 = nexttile;
 F3 = figure; Ax3 = axes(Parent=F3);
 F4 = figure; Ax4 = axes(Parent=F4);
 F5 = figure; Ax5 = axes(Parent=F5);
 F6 = figure; Ax6 = axes(Parent=F6);
-F7 = figure; Ax7 = axes(Parent=F7);
+F7 = figure;  T7 = tiledlayout(1,2,Parent=F7); Ax7_1 = nexttile; Ax7_2 = nexttile;
+
+Ax1_1.NextPlot = "add";
+Ax1_2.NextPlot = "add";
+Ax2_1.NextPlot = "add";
+Ax2_2.NextPlot = "add";
+Ax3.NextPlot = "add";
+Ax4.NextPlot = "add";
+Ax5.NextPlot = "add";
+Ax6.NextPlot = "add";
+Ax7_1.NextPlot = "add";
+Ax7_2.NextPlot = "add";
+
 
 % Creating Vector of Strings for plotting Symbols
 MarkerVec    = ["o";"+";"^";"x"];
@@ -216,235 +253,341 @@ ColorVec = (  1.*[0.0000,0.4470,0.7410; ...
                   1.0000,0.0000,0.0000; ...
                   0.5000,0.0000,0.5000; ...
                   0.0000,0.0000,1.0000; ...
-                  0.6250,0.3203,0.1758; ...
+                  0.0000,0.0000,0.0000; ...
                   0.4648,0.5313,0.5977; ...
                   0.0000,0.0000,1.0000]);
 
-%% Plot 1
-axes(Ax1);
-hold on;
-grid on;
-title("Forces and Moments for 75 fps Runs");
-xlabel("Alpha (deg)");
-ylabel("Force (lbs)")
-for i = 1:2
-    runName   = sprintf("%.0f Beta",NameArray{i,2});
+%% For Loop Containing All Plots
+for i = 1:4
+    if i < 3
+        %% Plot 1
+        axes(Ax1_1); %#ok<*LAXES>
+
+        if i == 1
+            % Plot 1a
+            grid on;
+            title("Forces for 75 fps Runs");
+            xlabel("Alpha (deg)");
+            ylabel("Force (lbs)");
+        end
+
+        runName   = sprintf("%.0f Beta",NameArray{i,2});
+        
+        % Create aeroTable as temporary variable to access Table Values
+        aeroTable = NameArray{i,9};
+        tempMarker = MarkerVec(i,:);
+        tempStyle  = LineStyleVec(i,:);
     
+        errorbar(aeroTable.Pitch,aeroTable.DragF,...
+            aeroTable.DUnc,aeroTable.DUnc,...
+            aeroTable.PUnc,aeroTable.PUnc,...
+            DisplayName=sprintf("%s Drag",runName),...
+            Color=ColorVec(2,:),Marker=tempMarker,LineStyle=tempStyle, ...
+            LineWidth=1.5,MarkerSize=8);
+        errorbar(aeroTable.Pitch,aeroTable.SideF,...
+            aeroTable.SUnc,aeroTable.SUnc,...
+            aeroTable.PUnc,aeroTable.PUnc,...
+            DisplayName=sprintf("%s Side Force",runName),...
+            Color=ColorVec(3,:),Marker=tempMarker,LineStyle=tempStyle,...
+            LineWidth=1.5,MarkerSize=8);
+        errorbar(aeroTable.Pitch,aeroTable.LiftF,...
+            aeroTable.LUnc,aeroTable.LUnc,...
+            aeroTable.PUnc,aeroTable.PUnc,...
+            DisplayName=sprintf("%s Lift",runName),...
+            Color=ColorVec(1,:),Marker=tempMarker,LineStyle=tempStyle, ...
+            LineWidth=1.5,MarkerSize=8);
+
+        axes(Ax1_2)
+
+        if i == 1
+            % Plot 1b
+            grid on;
+            title("Moments for 75 fps Runs");
+            xlabel("Alpha (deg)");
+            ylabel("Moment (ft*lbs)");
+        end
+
+        runName   = sprintf("%.0f Beta",NameArray{i,2});
+
+        % Create aeroTable as temporary variable to access Table Values
+        aeroTable = NameArray{i,9};
+        tempMarker = MarkerVec(i,:);
+        tempStyle  = LineStyleVec(i,:);
+
+        errorbar(aeroTable.Pitch,aeroTable.PitchM,...
+            aeroTable.PMUnc,aeroTable.PMUnc,...
+            aeroTable.PUnc,aeroTable.PUnc,...
+            DisplayName=sprintf("%s Pitch Moment",runName),...
+            Color=ColorVec(4,:),Marker=tempMarker,LineStyle=tempStyle, ...
+            LineWidth=1.5,MarkerSize=8);
+        errorbar(aeroTable.Pitch,aeroTable.YawM,...
+            aeroTable.YMUnc,aeroTable.YMUnc,...
+            aeroTable.PUnc,aeroTable.PUnc,...
+            DisplayName=sprintf("%s Yaw Moment",runName),...
+            Color=ColorVec(5,:),Marker=tempMarker,LineStyle=tempStyle, ...
+            LineWidth=1.5,MarkerSize=8);
+        errorbar(aeroTable.Pitch,aeroTable.RollM,...
+            aeroTable.RMUnc,aeroTable.RMUnc,...
+            aeroTable.PUnc,aeroTable.PUnc,...
+            DisplayName=sprintf("%s Roll Moment",runName),...
+            Color=ColorVec(6,:),Marker=tempMarker,LineStyle=tempStyle, ...
+            LineWidth=1.5,MarkerSize=8);
+    elseif i > 2
+        %% Plot 2
+        axes(Ax2_1);
+
+        if i == 3
+            % Plot 2a
+            grid on;
+            title("Forces for 100 fps Runs");
+            xlabel("Alpha (deg)");
+            ylabel("Force (lbs)");
+        end
+
+        runName   = sprintf("%.0f Beta",NameArray{i,2});
+
+        % Create aeroTable as temporary variable to access Table Values
+        aeroTable = NameArray{i,9};
+        tempMarker = MarkerVec(i,:);
+        tempStyle  = LineStyleVec(i,:);
+
+        errorbar(aeroTable.Pitch,aeroTable.DragF,aeroTable.DUnc,...
+            DisplayName=sprintf("%s Drag",runName),...
+            Color=ColorVec(2,:),Marker=tempMarker,LineStyle=tempStyle, ...
+            LineWidth=1.5,MarkerSize=8);
+        errorbar(aeroTable.Pitch,aeroTable.SideF,aeroTable.SUnc,...
+            DisplayName=sprintf("%s Side Force",runName),...
+            Color=ColorVec(3,:),Marker=tempMarker,LineStyle=tempStyle, ...
+            LineWidth=1.5,MarkerSize=8);
+        errorbar(aeroTable.Pitch,aeroTable.LiftF,aeroTable.LUnc,...
+            DisplayName=sprintf("%s Lift",runName),...
+            Color=ColorVec(1,:),Marker=tempMarker,LineStyle=tempStyle, ...
+            LineWidth=1.5,MarkerSize=8);
+
+        axes(Ax2_2);
+
+        if i == 3
+            % Plot 2b
+            grid on;
+            title("Moments for 100 fps Runs");
+            xlabel("Alpha (deg)");
+            ylabel("Moment (ft*lbs)");
+        end
+
+        runName   = sprintf("%.0f Beta",NameArray{i,2});
+
+        % Create aeroTable as temporary variable to access Table Values
+        aeroTable = NameArray{i,9};
+        tempMarker = MarkerVec(i,:);
+        tempStyle  = LineStyleVec(i,:);
+
+        errorbar(aeroTable.Pitch,aeroTable.PitchM,aeroTable.PMUnc,...
+            DisplayName=sprintf("%s Pitch Moment",runName),...
+            Color=ColorVec(4,:),Marker=tempMarker,LineStyle=tempStyle, ...
+            LineWidth=1.5,MarkerSize=8);
+        errorbar(aeroTable.Pitch,aeroTable.YawM,aeroTable.YMUnc,...
+            DisplayName=sprintf("%s Yaw Moment",runName),...
+            Color=ColorVec(5,:),Marker=tempMarker,LineStyle=tempStyle, ...
+            LineWidth=1.5,MarkerSize=8);
+        errorbar(aeroTable.Pitch,aeroTable.RollM,aeroTable.RMUnc,...
+            DisplayName=sprintf("%s Roll Moment",runName),...
+            Color=ColorVec(6,:),Marker=tempMarker,LineStyle=tempStyle, ...
+            LineWidth=1.5,MarkerSize=8);
+    end
+
+    %% Plot 3
+    axes(Ax3);
+
+    if i == 1
+        % Plot 3
+        grid on;
+        xlabel("Alpha (deg)");
+        yyaxis left
+        ylabel("C_L");
+        title("Lift and Drag Coefficients Over Angles of Attack");
+        yyaxis right
+        ylabel("C_D");
+        Ax3.YAxis(1).Color = 'black';
+        Ax3.YAxis(2).Color = 'black';
+        legend;
+    end
+
+    runName   = sprintf("%s fps, %.0f Beta",NameArray{i,1},NameArray{i,2});
+
     % Create aeroTable as temporary variable to access Table Values
     aeroTable = NameArray{i,9};
     tempMarker = MarkerVec(i,:);
     tempStyle  = LineStyleVec(i,:);
 
     yyaxis left
-    % plot(aeroTable.Pitch,aeroTable.DragF,DisplayName=sprintf("%s Drag",runName));
-    % plot(aeroTable.Pitch,aeroTable.SideF,DisplayName=sprintf("%s Side Force",runName));
-    % plot(aeroTable.Pitch,aeroTable.LiftF,DisplayName=sprintf("%s Lift",runName));
-    errorbar(aeroTable.Pitch,aeroTable.DragF,aeroTable.DUnc,...
-        DisplayName=sprintf("%s Drag",runName),...
-        Color=ColorVec(2,:),Marker=tempMarker,LineStyle=tempStyle);
-    errorbar(aeroTable.Pitch,aeroTable.SideF,aeroTable.SUnc,...
+    % plot(aeroTable.Pitch,aeroTable.CL,DisplayName=sprintf("%s CL",runName),...
+    %     Color=ColorVec(7,:),Marker=tempMarker,LineStyle=tempStyle, ...
+    %     LineWidth=1.5,MarkerSize=8);
+    errorbar(aeroTable.Pitch,aeroTable.CL,...
+        aeroTable.CLUnc,aeroTable.CLUnc,...
+        aeroTable.PUnc,aeroTable.PUnc,...
+        DisplayName=sprintf("%s CL",runName),...
+        Color=ColorVec(7,:),Marker=tempMarker,LineStyle=tempStyle, ...
+        LineWidth=1.5,MarkerSize=8);
+
+    yyaxis right
+    errorbar(aeroTable.Pitch,aeroTable.CD,...
+        aeroTable.CDUnc,aeroTable.CDUnc,...
+        aeroTable.PUnc,aeroTable.PUnc,...
+        DisplayName=sprintf("%s CD",runName),...
+        Color=ColorVec(8,:),Marker=tempMarker,LineStyle=tempStyle, ...
+        LineWidth=1.5,MarkerSize=8);
+
+    %% Plot 4
+    axes(Ax4);
+
+    if i == 1
+        % Plot 4
+        grid on;
+        xlabel("C_D");
+        ylabel("C_L");
+        title("Drag Polars");
+        legend;
+    end
+
+    % plot(aeroTable.CD,aeroTable.CL,DisplayName=sprintf("%s",runName),...
+    %     Color='black',Marker=tempMarker,LineStyle=tempStyle, ...
+    %     LineWidth=1.5,MarkerSize=8);
+    errorbar(aeroTable.CD,aeroTable.CL,...
+        aeroTable.CLUnc,aeroTable.CLUnc,...
+        aeroTable.CDUnc,aeroTable.CDUnc,...
+        DisplayName=sprintf("%s",runName),...
+        Color='black',Marker=tempMarker,LineStyle=tempStyle, ...
+        LineWidth=1.5,MarkerSize=8);
+
+    %% Plot 5
+    axes(Ax5);
+
+    if i == 1
+        % Plot 5
+        grid on;
+        xlabel("Alpha (deg)");
+        ylabel("C_L/C_D");
+        title("Lift to Drag Ratios Over Angles of Attack");
+        legend;
+    end
+
+    % plot(aeroTable.Pitch,aeroTable.CL./aeroTable.CD,DisplayName=sprintf("%s",runName),...
+    %     Color='black',Marker=tempMarker,LineStyle=tempStyle, ...
+    %     LineWidth=1.5,MarkerSize=8);
+    errorbar(aeroTable.Pitch,aeroTable.CL./aeroTable.CD,...
+        aeroTable.CLCDUnc,aeroTable.CLCDUnc,...
+        aeroTable.PUnc,aeroTable.PUnc,...
+        DisplayName=sprintf("%s",runName),...
+        Color='black',Marker=tempMarker,LineStyle=tempStyle, ...
+        LineWidth=1.5,MarkerSize=8);
+
+    %% Plot 6
+    axes(Ax6);
+
+    if i == 1
+        % Plot 6
+        grid on;
+        xlabel("Alpha (deg)");
+        ylabel("C_M Pitch");
+        title("Pitching Coefficient Over Angles of Attack");
+        legend;
+    end
+
+    % plot(aeroTable.Pitch,aeroTable.CMP,DisplayName=sprintf("%s",runName),...
+    %     Color='black',Marker=tempMarker,LineStyle=tempStyle, ...
+    %     LineWidth=1.5,MarkerSize=8);
+
+    errorbar(aeroTable.Pitch,aeroTable.CMP,...
+        aeroTable.CMPUnc,aeroTable.CMPUnc,...
+        aeroTable.PUnc,aeroTable.PUnc,...
+        DisplayName=sprintf("%s",runName),...
+        Color='black',Marker=tempMarker,LineStyle=tempStyle, ...
+        LineWidth=1.5,MarkerSize=8);
+
+    %% Plot 7
+    axes(Ax7_1);
+
+    if i == 1
+        % Plot 7a
+        grid on;
+        xlabel("Alpha (deg)");
+        ylabel("Force (lbs)");
+        title("Side Force Over Angles of Attack");
+    end
+
+    % plot(aeroTable.Pitch,aeroTable.SideF,DisplayName=sprintf("%s Side Force",runName),...
+    %     Color=ColorVec(3,:),Marker=tempMarker,LineStyle=tempStyle, ...
+    %     LineWidth=1.5,MarkerSize=8);
+
+    errorbar(aeroTable.Pitch,aeroTable.SideF,...
+        aeroTable.SUnc,aeroTable.SUnc,...
+        aeroTable.PUnc,aeroTable.PUnc,...
         DisplayName=sprintf("%s Side Force",runName),...
-        Color=ColorVec(3,:),Marker=tempMarker,LineStyle=tempStyle);
-    errorbar(aeroTable.Pitch,aeroTable.LiftF,aeroTable.LUnc,...
-        DisplayName=sprintf("%s Lift",runName),...
-        Color=ColorVec(1,:),Marker=tempMarker,LineStyle=tempStyle);
+        Color=ColorVec(3,:),Marker=tempMarker,LineStyle=tempStyle, ...
+        LineWidth=1.5,MarkerSize=8);
 
-    yyaxis right
-    % plot(aeroTable.Pitch,aeroTable.PitchM,DisplayName=sprintf("%s Pitch Moment",runName));
-    % plot(aeroTable.Pitch,aeroTable.YawM,DisplayName=sprintf("%s Yaw Moment",runName));
-    % plot(aeroTable.Pitch,aeroTable.RollM,DisplayName=sprintf("%s Roll Moment",runName));
-    errorbar(aeroTable.Pitch,aeroTable.PitchM,aeroTable.PMUnc,...
-        DisplayName=sprintf("%s Pitch Moment",runName),...
-        Color=ColorVec(4,:),Marker=tempMarker,LineStyle=tempStyle);
-    errorbar(aeroTable.Pitch,aeroTable.YawM,aeroTable.YMUnc,...
-        DisplayName=sprintf("%s Yaw Moment",runName),...
-        Color=ColorVec(5,:),Marker=tempMarker,LineStyle=tempStyle);
-    errorbar(aeroTable.Pitch,aeroTable.RollM,aeroTable.RMUnc,...
-        DisplayName=sprintf("%s Roll Moment",runName),...
-        Color=ColorVec(6,:),Marker=tempMarker,LineStyle=tempStyle);
+    axes(Ax7_2);
+
+    if i == 1
+        % Plot 7b
+        grid on;
+        xlabel("Alpha (deg)");
+        ylabel("Coefficient");
+        title("C_M Yaw and C_M Roll Over Angles of Attack");
+    end
+
+    % plot(aeroTable.Pitch,aeroTable.CMY,DisplayName=sprintf("%s C_M Yaw",runName),...
+    %     Color=ColorVec(11,:),Marker=tempMarker,LineStyle=tempStyle, ...
+    %     LineWidth=1.5,MarkerSize=8);
+    % plot(aeroTable.Pitch,aeroTable.CMR,DisplayName=sprintf("%s C_M Roll",runName),...
+    %     Color=ColorVec(12,:),Marker=tempMarker,LineStyle=tempStyle, ...
+    %     LineWidth=1.5,MarkerSize=8);
+
+    errorbar(aeroTable.Pitch,aeroTable.CMY,...
+        aeroTable.CMYUnc,aeroTable.CMYUnc,...
+        aeroTable.PUnc,aeroTable.PUnc,...
+        DisplayName=sprintf("%s C_M Yaw",runName),...
+        Color=ColorVec(11,:),Marker=tempMarker,LineStyle=tempStyle, ...
+        LineWidth=1.5,MarkerSize=8);
+    errorbar(aeroTable.Pitch,aeroTable.CMR,...
+        aeroTable.CMRUnc,aeroTable.CMRUnc,...
+        aeroTable.PUnc,aeroTable.PUnc,...
+        DisplayName=sprintf("%s C_M Roll",runName),...
+        Color=ColorVec(12,:),Marker=tempMarker,LineStyle=tempStyle, ...
+        LineWidth=1.5,MarkerSize=8);
 end
-legend(NumColumns=2,Location='northwest');
-ylabel("Moment (ft*lbs)");
-Ax1.YAxis(1).Color = 'black';
-Ax1.YAxis(2).Color = 'black';
-
-%% Plot 2
-axes(Ax2);
-hold on;
-grid on;
-title("Forces and Moments for 100 fps Runs");
-xlabel("Alpha (deg)");
-ylabel("Force (lbs)");
-
-for i = 3:4
-    runName   = sprintf("%.0f Beta",NameArray{i,2});
-    
-    % Create aeroTable as temporary variable to access Table Values
-    aeroTable = NameArray{i,9};
-    tempMarker = MarkerVec(i,:);
-    tempStyle  = LineStyleVec(i,:);
-
-    yyaxis left
-    % plot(aeroTable.Pitch,aeroTable.DragF,DisplayName=sprintf("%s Drag",runName));
-    % plot(aeroTable.Pitch,aeroTable.SideF,DisplayName=sprintf("%s Side Force",runName));
-    % plot(aeroTable.Pitch,aeroTable.LiftF,DisplayName=sprintf("%s Lift",runName));
-    errorbar(aeroTable.Pitch,aeroTable.DragF,aeroTable.DUnc,...
-        DisplayName=sprintf("%s Drag",runName),...
-        Color=ColorVec(2,:),Marker=tempMarker,LineStyle=tempStyle);
-    errorbar(aeroTable.Pitch,aeroTable.SideF,aeroTable.SUnc,...
-        DisplayName=sprintf("%s Side Force",runName),...
-        Color=ColorVec(3,:),Marker=tempMarker,LineStyle=tempStyle);
-    errorbar(aeroTable.Pitch,aeroTable.LiftF,aeroTable.LUnc,...
-        DisplayName=sprintf("%s Lift",runName),...
-        Color=ColorVec(1,:),Marker=tempMarker,LineStyle=tempStyle);
-
-    yyaxis right
-    % plot(aeroTable.Pitch,aeroTable.PitchM,DisplayName=sprintf("%s Pitch Moment",runName));
-    % plot(aeroTable.Pitch,aeroTable.YawM,DisplayName=sprintf("%s Yaw Moment",runName));
-    % plot(aeroTable.Pitch,aeroTable.RollM,DisplayName=sprintf("%s Roll Moment",runName));
-    errorbar(aeroTable.Pitch,aeroTable.PitchM,aeroTable.PMUnc,...
-        DisplayName=sprintf("%s Pitch Moment",runName),...
-        Color=ColorVec(4,:),Marker=tempMarker,LineStyle=tempStyle);
-    errorbar(aeroTable.Pitch,aeroTable.YawM,aeroTable.YMUnc,...
-        DisplayName=sprintf("%s Yaw Moment",runName),...
-        Color=ColorVec(5,:),Marker=tempMarker,LineStyle=tempStyle);
-    errorbar(aeroTable.Pitch,aeroTable.RollM,aeroTable.RMUnc,...
-        DisplayName=sprintf("%s Roll Moment",runName),...
-        Color=ColorVec(6,:),Marker=tempMarker,LineStyle=tempStyle);
-end
-legend(NumColumns=2,Location='northwest');
-ylabel("Moment (ft*lbs)");
-Ax2.YAxis(1).Color = 'black';
-Ax2.YAxis(2).Color = 'black';
-
-%% Plot 3
-% NOTE: Could condense down into single 4 iteration for loop from here
-% through plot 7, would require formatting after main loop
-axes(Ax3);
-hold on;
-grid on;
-xlabel("Alpha (deg)");
-ylabel("CL");
-title("Lift and Drag Coefficients Over Angles of Attack");
-
-for i = 1:4
-    runName   = sprintf("%s fps, %.0f Beta",NameArray{i,1},NameArray{i,2});
-    
-    % Create aeroTable as temporary variable to access Table Values
-    aeroTable = NameArray{i,9};
-    tempMarker = MarkerVec(i,:);
-    tempStyle  = LineStyleVec(i,:);
-
-    yyaxis left
-    plot(aeroTable.Pitch,aeroTable.CL,DisplayName=sprintf("%s CL",runName),...
-        Color=ColorVec(7,:),Marker=tempMarker,LineStyle=tempStyle);
-
-    yyaxis right
-    plot(aeroTable.Pitch,aeroTable.CD,DisplayName=sprintf("%s CD",runName),...
-        Color=ColorVec(8,:),Marker=tempMarker,LineStyle=tempStyle);
-end
-legend(Location='northwest');
-ylabel("CD");
-Ax3.YAxis(1).Color = 'black';
-Ax3.YAxis(2).Color = 'black';
-Ax3.YAxis(2).Limits = Ax3.YAxis(1).Limits;
-
-%% Plot 4
-axes(Ax4);
-hold on;
-grid on;
-xlabel("CD");
-ylabel("CL");
-title("Drag Polars");
-
-for i = 1:4
-    runName   = sprintf("%s fps, %.0f Beta",NameArray{i,1},NameArray{i,2});
-    
-    % Create aeroTable as temporary variable to access Table Values
-    aeroTable = NameArray{i,9};
-    tempMarker = MarkerVec(i,:);
-    tempStyle  = LineStyleVec(i,:);
-
-    plot(aeroTable.CD,aeroTable.CL,DisplayName=sprintf("%s",runName),...
-        Color=ColorVec(7,:),Marker=tempMarker,LineStyle=tempStyle);
-end
-
-legend(Location='northwest');
-
-%% Plot 5
-axes(Ax5);
-hold on;
-grid on;
-xlabel("Alpha (deg)");
-ylabel("CL/CD");
-title("Lift to Drag Ratios Over Angles of Attack");
-
-for i = 1:4
-    runName   = sprintf("%s fps, %.0f Beta",NameArray{i,1},NameArray{i,2});
-    
-    % Create aeroTable as temporary variable to access Table Values
-    aeroTable = NameArray{i,9};
-    tempMarker = MarkerVec(i,:);
-    tempStyle  = LineStyleVec(i,:);
-
-    plot(aeroTable.Pitch,aeroTable.CL./aeroTable.CD,DisplayName=sprintf("%s",runName),...
-        Color='black',Marker=tempMarker,LineStyle=tempStyle);
-end
-
-legend(Location='northwest');
-
-%% Plot 6
-axes(Ax6);
-hold on;
-grid on;
-xlabel("Alpha (deg)");
-ylabel("C_M Pitch");
-title("Pitching Coefficient Over Angles of Attack");
-
-for i = 1:4
-    runName   = sprintf("%s fps, %.0f Beta",NameArray{i,1},NameArray{i,2});
-    
-    % Create aeroTable as temporary variable to access Table Values
-    aeroTable = NameArray{i,9};
-    tempMarker = MarkerVec(i,:);
-    tempStyle  = LineStyleVec(i,:);
-
-    plot(aeroTable.Pitch,aeroTable.CMP,DisplayName=sprintf("%s",runName),...
-        Color=ColorVec(10,:),Marker=tempMarker,LineStyle=tempStyle);
-end
-
-legend(Location='northwest');
-
-%% Plot 7
-axes(Ax7);
-hold on;
-grid on;
-xlabel("Alpha (deg)");
-ylabel("Force (lbs)");
-title("Side Force, C_M Yaw, C_M Roll Over Angles of Attack");
-
-for i = 1:4
-    runName   = sprintf("%s fps, %.0f Beta",NameArray{i,1},NameArray{i,2});
-    
-    % Create aeroTable as temporary variable to access Table Values
-    aeroTable = NameArray{i,9};
-    tempMarker = MarkerVec(i,:);
-    tempStyle  = LineStyleVec(i,:);
-
-    yyaxis left
-    plot(aeroTable.Pitch,aeroTable.SideF,DisplayName=sprintf("%s Side Force",runName),...
-        Color=ColorVec(3,:),Marker=tempMarker,LineStyle=tempStyle);
-
-    yyaxis right
-    plot(aeroTable.Pitch,aeroTable.CMY,DisplayName=sprintf("%s C_M Yaw",runName),...
-        Color=ColorVec(11,:),Marker=tempMarker,LineStyle=tempStyle);
-    plot(aeroTable.Pitch,aeroTable.CMR,DisplayName=sprintf("%s C_M Roll",runName),...
-        Color=ColorVec(12,:),Marker=tempMarker,LineStyle=tempStyle);
-end
-
-legend(Location='northwest');
-ylabel("Coefficient");
-Ax7.YAxis(1).Color = 'black';
-Ax7.YAxis(2).Color = 'black';
 
 clear i runName aeroTable tempMarker MarkerVec ColorVec tempStyle LineStyleVec
+
+%% General Formatting
+Ax1_1.FontSize = 18;
+Ax1_2.FontSize = 18;
+Ax2_1.FontSize = 18;
+Ax2_2.FontSize = 18;
+Ax3.FontSize = 18;
+Ax4.FontSize = 18;
+Ax5.FontSize = 18;
+Ax6.FontSize = 18;
+Ax7_1.FontSize = 18;
+Ax7_2.FontSize = 18;
+
+Ax3.YAxis(2).Limits = Ax3.YAxis(1).Limits;
+
+axes(Ax1_1); legend(NumColumns=2);
+axes(Ax1_2); legend(NumColumns=2);
+axes(Ax2_1); legend(NumColumns=2);
+axes(Ax2_2); legend(NumColumns=2);
+axes(Ax7_1); legend(NumColumns=2);
+axes(Ax7_2); legend(NumColumns=2);
+
+Ax1_1.Legend.Location = 'northwest';
+Ax1_2.Legend.Location = 'northwest';
+Ax2_1.Legend.Location = 'northwest';
+Ax2_2.Legend.Location = 'northwest';
+Ax3.Legend.Location   = 'northwest';
+Ax4.Legend.Location   = 'northwest';
+Ax5.Legend.Location   = 'northwest';
+Ax6.Legend.Location   = 'northwest';
+Ax7_1.Legend.Location = 'northeast';
+Ax7_2.Legend.Location = 'southwest';
