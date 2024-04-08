@@ -115,7 +115,7 @@ for i = 1:size(NameArray,1)
 
     % Hard Coding Wing Area and Span Length
     S_w   = 242.01; % in2
-    c_bar = 9.88; % in
+    C_bar = 9.88; % in
 
     % F_Aero = F_Data - (F_Image - F_Invert)
     % Build Table For Found Forces
@@ -164,17 +164,17 @@ for i = 1:size(NameArray,1)
     AeroValues.CD     = AeroValues.CDA./S_w; % C_Drag
     AeroValues.CN     = AeroValues.CNA./S_w; % C_Normal (SideForce)
     AeroValues.CL     = AeroValues.CLA./S_w; % C_Lift
-    AeroValues.CMR    = AeroValues.CMRA./S_w; % C_M_Roll
-    AeroValues.CMP    = AeroValues.CMPA./S_w; % C_M_Pitch
-    AeroValues.CMY    = AeroValues.CMYA./S_w; % C_M_Yaw
+    AeroValues.CMR    = AeroValues.CMRA./(S_w*C_bar); % C_M_Roll
+    AeroValues.CMP    = AeroValues.CMPA./(S_w*C_bar); % C_M_Pitch
+    AeroValues.CMY    = AeroValues.CMYA./(S_w*C_bar); % C_M_Yaw
 
     % Uncertainty in Coefficients
     AeroValues.CDUnc  = AeroValues.CDAUnc./S_w;
     AeroValues.CNUnc  = AeroValues.CNAUnc./S_w;
     AeroValues.CLUnc  = AeroValues.CLAUnc./S_w;
-    AeroValues.CMRUnc = AeroValues.CMRAUnc./S_w;
-    AeroValues.CMPUnc = AeroValues.CMPAUnc./S_w;
-    AeroValues.CMYUnc = AeroValues.CMYAUnc./S_w;
+    AeroValues.CMRUnc = AeroValues.CMRAUnc./(S_w*C_bar);
+    AeroValues.CMPUnc = AeroValues.CMPAUnc./(S_w*C_bar);
+    AeroValues.CMYUnc = AeroValues.CMYAUnc./(S_w*C_bar);
 
     % CL/CD Unc
     AeroValues.CLCDUnc = sqrt((AeroValues.CLUnc./AeroValues.CD).^2 + (AeroValues.CL.*AeroValues.CDUnc./(AeroValues.CD.^2)).^2);
@@ -185,7 +185,7 @@ for i = 1:size(NameArray,1)
     % NameArray{1,9}.Properties.VariableNames
 end
 clear i data_dir tare_dir AeroValues
-clear S_w c_bar
+clear S_w C_bar
 
 %% Plotting
 % Plot 1 - Forces, Moments Vs Alpha  75 fps (Both 0, 10 deg Yaw)
