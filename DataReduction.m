@@ -123,6 +123,7 @@ for i = 1:size(NameArray,1)
 
     AeroValues.Pitch  = NameArray{i,6}.Pitch;
     AeroValues.Q      = NameArray{i,6}.("Dynamic Pressure");
+    AeroValues.Re     = NameArray{i,6}.("Reynolds Number per ft");
 
     % AeroValues.PUnc   = 0.01.*AeroValues.Pitch; % Constant Percentage of
     % Angle Uncertainty
